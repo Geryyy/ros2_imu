@@ -2,6 +2,7 @@ import spidev
 import numpy as np
 import time
 import RPi.GPIO as GPIO
+from colorama import Fore, Style
 
 GYRO = 0
 ACCEL = 1
@@ -61,7 +62,7 @@ class ADIS16460():
     def _reset_spi(self):
         
         GPIO.output(self.rst, GPIO.LOW)
-        time.sleep(0.5)
+        time.sleep(0.001)
         GPIO.output(self.rst, GPIO.HIGH)
     
     def _convert(self, channel, OUT, LOW = [0x00, 0x00]):
@@ -104,6 +105,10 @@ class ADIS16460():
     def read(self):
         self.count = self.count + 1   
         
+        if not GPIO.input(self.dr):
+            print(Fore.YELLOW + "Data not Ready!" + Style.RESET_ALL)
+            return None
+        
         resp = self._read_burst()
         
         # Extract data
@@ -127,6 +132,8 @@ class ADIS16460():
         
         if checksum != calc:
             self.checksum_count = self.checksum_count + 1
+            print(Fore.RED + "Checksum Error! count: {}".format(self.checksum_count) + Style.RESET_ALL)
+            self._reset_spi()
             return None
         
         # Convert data

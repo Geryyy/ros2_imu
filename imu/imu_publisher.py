@@ -23,12 +23,12 @@ class ImuPublisher(Node):
         spi_mode = 3
         
         # Device 0
-        cs0 = 0
+        cs0 = 0 # spi0, ce0
         dr0 = 25
         rst0 = 12
         
         # Device 1
-        cs1 = 1
+        cs1 = 1 # spi0, ce1
         dr1 = 26
         rst1 = 13
         
@@ -37,6 +37,8 @@ class ImuPublisher(Node):
         
         self.dev0_publisher = self.create_publisher(Imu, 'adis16460_dev0', 10)
         self.dev1_publisher = self.create_publisher(Imu, 'adis16460_dev1', 10)
+
+        self.timer = self.create_timer(0.01, self.timer_callback)
     
     
         size = 1000
@@ -47,28 +49,32 @@ class ImuPublisher(Node):
         
         
         self.alpha = 0.99
-    
+
+        self.get_logger().info('Starting SPI reading')
         self.read()
         # self.timer = self.create_timer(1e-9, self.read)
 
-    def read(self):
-        self.get_logger().info('Starting SPI reading')
-        while True:
-            # GPIO.wait_for_edge(self.dev0.dr, GPIO.RISING)
-            dev0_read = self.dev0.read()
-            if dev0_read is not None:                
-                self.dev0_data = self.alpha * self.dev0_data + (1 - self.alpha) * dev0_read
-                self.dev0_var = self.alpha * self.dev0_var + (1 - self.alpha) * (self.dev0_data - dev0_read) ** 2
-                dev0_msg = self.create_msg(dev0_read, self.dev0_var, 'imu0')
-                self.dev0_publisher.publish(dev0_msg)
+    def timer_callback(self):
+        self.read()
 
-            # GPIO.wait_for_edge(self.dev0.dr, GPIO.RISING)
-            dev1_read = self.dev1.read()
-            if dev1_read is not None:                
-                self.dev1_data = self.alpha * self.dev1_data + (1 - self.alpha) * dev1_read
-                self.dev1_var = self.alpha * self.dev1_var + (1 - self.alpha) * (self.dev1_data - dev1_read) ** 2
-                dev1_msg = self.create_msg(dev1_read, self.dev1_var, 'imu1')
-                self.dev1_publisher.publish(dev1_msg)
+
+
+    def read(self):
+        # GPIO.wait_for_edge(self.dev0.dr, GPIO.RISING)
+        dev0_read = self.dev0.read()
+        if dev0_read is not None:                
+            self.dev0_data = self.alpha * self.dev0_data + (1 - self.alpha) * dev0_read
+            self.dev0_var = self.alpha * self.dev0_var + (1 - self.alpha) * (self.dev0_data - dev0_read) ** 2
+            dev0_msg = self.create_msg(dev0_read, self.dev0_var, 'imu0')
+            self.dev0_publisher.publish(dev0_msg)
+
+        # GPIO.wait_for_edge(self.dev0.dr, GPIO.RISING)
+        dev1_read = self.dev1.read()
+        if dev1_read is not None:                
+            self.dev1_data = self.alpha * self.dev1_data + (1 - self.alpha) * dev1_read
+            self.dev1_var = self.alpha * self.dev1_var + (1 - self.alpha) * (self.dev1_data - dev1_read) ** 2
+            dev1_msg = self.create_msg(dev1_read, self.dev1_var, 'imu1')
+            self.dev1_publisher.publish(dev1_msg)
 
 
     def create_msg(self, data, var_data, child_frame='imu'):
@@ -111,3 +117,5 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
