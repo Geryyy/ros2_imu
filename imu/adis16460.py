@@ -133,7 +133,7 @@ class ADIS16460():
         if checksum != calc:
             self.checksum_count = self.checksum_count + 1
             print(Fore.RED + "Checksum Error! count: {}".format(self.checksum_count) + Style.RESET_ALL)
-            self._reset_spi()
+            # self._reset_spi()
             return None
         
         # Convert data
@@ -150,98 +150,38 @@ class ADIS16460():
             
             
 if __name__ == '__main__':
+    dev = 0
+    spi_freq = 1000000
+    spi_mode = 3
     
-    dev0 = ADIS16460(0, 0, 3, 1000000, 25, 8)
-    dev1 = ADIS16460(0, 1, 3, 1000000, 26, 7)
-    # dev1 = None
+    # Device 0
+    cs0 = 0 # spi0, ce0
+    dr0 = 25
+    rst0 = 12
+    
+    # Device 1
+    cs1 = 1 # spi0, ce1
+    dr1 = 26
+    rst1 = 13
+    
+    dev0 = ADIS16460(dev, cs0, spi_mode, spi_freq, dr0, rst0)
+    dev1 = ADIS16460(dev, cs1, spi_mode, spi_freq, dr1, rst1)
+    cnt = 0
+    while cnt < 50:
+        dev0_read = dev0.read()
+        if dev0_read is None:
+            print(Fore.RED + "Dev0 Read failed!" + Style.RESET_ALL)
+        else:
+            print(Fore.GREEN + "Dev0 Read Successull!" + Style.RESET_ALL)
 
-    GPIO.setup(12, GPIO.OUT)
-    GPIO.setup(13, GPIO.OUT)
-    
-    GPIO.output(12, GPIO.LOW)
-    GPIO.output(13, GPIO.LOW)
-    
-    time.sleep(0.5)
-    
-    GPIO.output(12, GPIO.HIGH)
-    GPIO.output(13, GPIO.HIGH)
-    
-    start = time.time()
+        dev1_read = dev1.read()
+        if dev1_read is None:
+            print(Fore.RED + "Dev1 Read failed!" + Style.RESET_ALL)
+        else:
+            print(Fore.GREEN + "Dev1 Read Successull!" + Style.RESET_ALL)
 
-    for i in range(10000):
-        GPIO.wait_for_edge(25, GPIO.RISING)
-        print(dev0.read()) 
-        # dev0._read_burst()
-        GPIO.wait_for_edge(26, GPIO.RISING)
-        print(dev1.read()) 
-        # dev1._read_burst()
-        # if GPIO.event_detected(26):
-            
-    end = time.time()
-    
-    print(f'Failure Percentage dev0: {dev0.checksum_count / dev0.count * 100}%')
-    print(f'Failure Percentage dev1: {dev1.checksum_count / dev1.count * 100}%')
-    
-    print(f'Frequency dev0: {dev0.count / (end - start)} Hz')
-    print(f'Frequency dev1: {dev1.count / (end - start)} Hz')
 
-        # end = time.time()
+        time.sleep(0.01)
+        cnt += 1
 
-    GPIO.cleanup() 
-    
-    
-    # exit()
-    
-    # GPIO.setmode(GPIO.BCM)
-    # GPIO.setup(25, GPIO.IN)
-    # GPIO.setup(26, GPIO.IN)
         
-    # GPIO.setup(25, GPIO.IN)
-    # GPIO.setup(26, GPIO.IN)
-        
-    # GPIO.add_event_detect(25, GPIO.RISING, callback=dev0._read_all)
-    # GPIO.add_event_detect(26, GPIO.RISING, callback=dev1._read_all)
-
-    exit()
-        
-    start = time.time()
-    end = time.time()
-    while (end - start) < 5:
-        end = time.time()
-        
-    print(f'Time: {end - start}')
-    print(f'Frequency: {dev0.count / (end - start)} Hz')
-    print(dev0.count)
-    print('End')
-        
-    if dev0:
-        fig, axs = plt.subplots(2, 1)
-        axs[0].plot(dev0.data[:, 0], 'r', label='X_GYRO')
-        axs[0].plot(dev0.data[:, 1], 'g', label='Y_GYRO')
-        axs[0].plot(dev0.data[:, 2], 'b', label='Z_GYRO')
-        axs[0].grid(True)
-        axs[0].legend()
-
-        axs[1].plot(dev0.data[:, 3], 'r', label='X_ACCEL')
-        axs[1].plot(dev0.data[:, 4], 'g', label='Y_ACCEL')
-        axs[1].plot(dev0.data[:, 5], 'b', label='Z_ACCEL')
-        axs[1].grid(True)
-        axs[1].legend()
-        plt.savefig('SPI0.0.png')
-    
-    if dev1:
-        fig, axs = plt.subplots(2, 1)
-        axs[0].plot(dev1.data[:, 0], 'r', label='X_GYRO')
-        axs[0].plot(dev1.data[:, 1], 'g', label='Y_GYRO')
-        axs[0].plot(dev1.data[:, 2], 'b', label='Z_GYRO')
-        axs[0].grid(True)
-        axs[0].legend()
-
-        axs[1].plot(dev1.data[:, 3], 'r', label='X_ACCEL')
-        axs[1].plot(dev1.data[:, 4], 'g', label='Y_ACCEL')
-        axs[1].plot(dev1.data[:, 5], 'b', label='Z_ACCEL')
-        axs[1].grid(True)
-        axs[1].legend()
-        plt.savefig('SPI0.1.png')
-        
-    GPIO.cleanup()
