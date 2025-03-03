@@ -23,10 +23,18 @@ Z_ACCEL_LOW = 0x18
 Z_ACCEL_OUT = 0x1A
 TEMP_OUT = 0x1E
 SMPL_CNTR = 0x1C
+
+PROD_ID = 0x56
+PROD_ID_VAL = 0x404C
+
+# sync control
+MSC_CTRL = 0x32
+SYNC_OUTPUT = 0xCD
+SYNC_INPUT = 0xC5
     
 
 class ADIS16460():
-    def __init__(self, dev, cs, mode, speed, dr, rst):
+    def __init__(self, dev, cs, mode, speed, dr, rst, sync_master=False):
 
         # SPI Setup
         self.spi = spidev.SpiDev()
@@ -52,6 +60,18 @@ class ADIS16460():
             
         self._setup_gpio()
         self._reset_spi()
+
+        time.sleep(0.5)
+
+        product_id = self.read_register(PROD_ID)
+        if product_id != PROD_ID_VAL:
+            raise Exception("ADIS16460 Product Identifier wrong! Check SPI communication.")
+
+        if sync_master:
+            self.write_register(MSC_CTRL, SYNC_OUTPUT)
+        else:
+            self.write_register(MSC_CTRL, SYNC_INPUT)
+
             
     def _setup_gpio(self):
         
@@ -133,7 +153,7 @@ class ADIS16460():
         if checksum != calc:
             self.checksum_count = self.checksum_count + 1
             print(Fore.RED + "Checksum Error! count: {}".format(self.checksum_count) + Style.RESET_ALL)
-            self._reset_spi()
+            # self._reset_spi()
             return None
         
         # Convert data
@@ -147,101 +167,94 @@ class ADIS16460():
         data[5] = self._convert(ACCEL, z_accel)
 
         return data
+
+    # def read_register(self, reg):
+    #     # Send the register address with a read command (0x00 is a read command)
+    #     send = [reg, 0x00, reg+1, 0x00]  # 2-byte array: [register address, dummy byte]
+        
+    #     # Perform the SPI transfer
+    #     resp = self.spi.xfer(send)
+    #     print(resp)
+    #     # The received response is in the second byte (register data)
+    #     return (resp[0] << 8) | resp[1]  # Combine the two bytes into a 16-bit value
+
+    def read_register(self, reg):
+        # Send the register address with a read command (0x00 is a read command)
+        send = [reg, 0x00]  # 2-byte array: [register address, dummy byte]
+        # Perform the SPI transfer
+        resp = self.spi.xfer(send)
+
+        receive = [0x00,0x00]
+        resp = self.spi.xfer(receive)
+        # The received response is in the second byte (register data)
+        return (resp[0] << 8) | resp[1]  # Combine the two bytes into a 16-bit value
+        
+
+    def write_register(self, reg, value):
+        # Send the register address with a write command (MSB set for write, 0x80)
+        send = [reg | 0x80, (value & 0xFF), (reg + 1) | 0x80, (value >> 8) & 0xFF]
+        
+        # Perform the SPI transfer (4 bytes: 2 for the register and 2 for the value)
+        self.spi.xfer(send)
+
+
             
-            
+import time            
 if __name__ == '__main__':
+    dev = 0
+    spi_freq = 1000000
+    spi_mode = 3
     
-    dev0 = ADIS16460(0, 0, 3, 1000000, 25, 8)
-    dev1 = ADIS16460(0, 1, 3, 1000000, 26, 7)
-    # dev1 = None
+    # Device 0
+    cs0 = 0 # spi0, ce0
+    dr0 = 25
+    rst0 = 12
+    
+    # Device 1
+    cs1 = 1 # spi0, ce1
+    dr1 = 26
+    rst1 = 13
+    
+    dev0 = ADIS16460(dev, cs0, spi_mode, spi_freq, dr0, rst0, sync_master=True)
+    dev1 = ADIS16460(dev, cs1, spi_mode, spi_freq, dr1, rst1, sync_master=False)
 
-    GPIO.setup(12, GPIO.OUT)
-    GPIO.setup(13, GPIO.OUT)
-    
-    GPIO.output(12, GPIO.LOW)
-    GPIO.output(13, GPIO.LOW)
-    
-    time.sleep(0.5)
-    
-    GPIO.output(12, GPIO.HIGH)
-    GPIO.output(13, GPIO.HIGH)
-    
-    start = time.time()
+    # time.sleep(0.5)
 
-    for i in range(10000):
-        GPIO.wait_for_edge(25, GPIO.RISING)
-        print(dev0.read()) 
-        # dev0._read_burst()
-        GPIO.wait_for_edge(26, GPIO.RISING)
-        print(dev1.read()) 
-        # dev1._read_burst()
-        # if GPIO.event_detected(26):
-            
-    end = time.time()
-    
-    print(f'Failure Percentage dev0: {dev0.checksum_count / dev0.count * 100}%')
-    print(f'Failure Percentage dev1: {dev1.checksum_count / dev1.count * 100}%')
-    
-    print(f'Frequency dev0: {dev0.count / (end - start)} Hz')
-    print(f'Frequency dev1: {dev1.count / (end - start)} Hz')
+    # cnt = 0
+    # while cnt < 10:
+    #     reg_addr = 0x56
+    #     ret_val = dev0.read_register(reg_addr)
+    #     print(f"Dev0 Register value: 0x{ret_val:2x}")
+    #     ret_val = dev1.read_register(reg_addr)
+    #     print(f"Dev1 Register value: 0x{ret_val:2x}")
+    #     cnt += 1
 
-        # end = time.time()
+    #     MSC_CTRL = 0x32
+    #     SYNC_OUTPUT = 0xCD
+    #     SYNC_INPUT = 0xC5
+    #     dev0.write_register(MSC_CTRL, SYNC_OUTPUT)
+    #     dev1.write_register(MSC_CTRL, SYNC_INPUT)
 
-    GPIO.cleanup() 
-    
-    
-    # exit()
-    
-    # GPIO.setmode(GPIO.BCM)
-    # GPIO.setup(25, GPIO.IN)
-    # GPIO.setup(26, GPIO.IN)
+    # print("reset device")
+    # dev1._reset_spi()
+
+
+    # cnt = 0
+    # while cnt < 50:
+    #     dev0_read = dev0.read()
+    #     if dev0_read is None:
+    #         print(Fore.RED + "Dev0 Read failed!" + Style.RESET_ALL)
+    #     else:
+    #         print(Fore.GREEN + "Dev0 Read Successull!" + Style.RESET_ALL)
+
+    #     dev1_read = dev1.read()
+    #     if dev1_read is None:
+    #         print(Fore.RED + "Dev1 Read failed!" + Style.RESET_ALL)
+    #     else:
+    #         print(Fore.GREEN + "Dev1 Read Successull!" + Style.RESET_ALL)
+
+
+    #     time.sleep(0.01)
+    #     cnt += 1
+
         
-    # GPIO.setup(25, GPIO.IN)
-    # GPIO.setup(26, GPIO.IN)
-        
-    # GPIO.add_event_detect(25, GPIO.RISING, callback=dev0._read_all)
-    # GPIO.add_event_detect(26, GPIO.RISING, callback=dev1._read_all)
-
-    exit()
-        
-    start = time.time()
-    end = time.time()
-    while (end - start) < 5:
-        end = time.time()
-        
-    print(f'Time: {end - start}')
-    print(f'Frequency: {dev0.count / (end - start)} Hz')
-    print(dev0.count)
-    print('End')
-        
-    if dev0:
-        fig, axs = plt.subplots(2, 1)
-        axs[0].plot(dev0.data[:, 0], 'r', label='X_GYRO')
-        axs[0].plot(dev0.data[:, 1], 'g', label='Y_GYRO')
-        axs[0].plot(dev0.data[:, 2], 'b', label='Z_GYRO')
-        axs[0].grid(True)
-        axs[0].legend()
-
-        axs[1].plot(dev0.data[:, 3], 'r', label='X_ACCEL')
-        axs[1].plot(dev0.data[:, 4], 'g', label='Y_ACCEL')
-        axs[1].plot(dev0.data[:, 5], 'b', label='Z_ACCEL')
-        axs[1].grid(True)
-        axs[1].legend()
-        plt.savefig('SPI0.0.png')
-    
-    if dev1:
-        fig, axs = plt.subplots(2, 1)
-        axs[0].plot(dev1.data[:, 0], 'r', label='X_GYRO')
-        axs[0].plot(dev1.data[:, 1], 'g', label='Y_GYRO')
-        axs[0].plot(dev1.data[:, 2], 'b', label='Z_GYRO')
-        axs[0].grid(True)
-        axs[0].legend()
-
-        axs[1].plot(dev1.data[:, 3], 'r', label='X_ACCEL')
-        axs[1].plot(dev1.data[:, 4], 'g', label='Y_ACCEL')
-        axs[1].plot(dev1.data[:, 5], 'b', label='Z_ACCEL')
-        axs[1].grid(True)
-        axs[1].legend()
-        plt.savefig('SPI0.1.png')
-        
-    GPIO.cleanup()

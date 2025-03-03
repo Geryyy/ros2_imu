@@ -38,9 +38,14 @@ class ImuPublisher(Node):
         self.dev0_publisher = self.create_publisher(Imu, 'adis16460_dev0', 10)
         self.dev1_publisher = self.create_publisher(Imu, 'adis16460_dev1', 10)
 
-        self.timer = self.create_timer(0.01, self.timer_callback)
+        time.sleep(0.01)
+        ret = self.dev0.read_register(0x56)
+        print("ret: " + str(ret))
+
+        self.timer = self.create_timer(0.001, self.timer_callback)
     
-    
+        exit()
+        
         size = 1000
         self.dev0_data = np.zeros(6) # deque(maxlen=size)
         self.dev1_data = np.zeros(6) # deque(maxlen=size)
