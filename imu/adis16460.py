@@ -72,6 +72,13 @@ class ADIS16460():
         else:
             self.write_register(MSC_CTRL, SYNC_INPUT)
 
+        # GPIO.add_event_detect(self.dr, GPIO.RISING)
+        # GPIO.add_event_callback(self.dr, self.dr_callback)
+
+
+    def dr_callback(self):
+        print("dr_callback")
+
             
     def _setup_gpio(self):
         
@@ -218,6 +225,11 @@ if __name__ == '__main__':
     dev0 = ADIS16460(dev, cs0, spi_mode, spi_freq, dr0, rst0, sync_master=True)
     dev1 = ADIS16460(dev, cs1, spi_mode, spi_freq, dr1, rst1, sync_master=False)
 
+    # GPIO.add_event_detect(dev0.dr, GPIO.RISING)
+    # retval = GPIO.add_event_callback(dev0.dr, dev0.dr_callback)
+    # print("retval: ", retval)
+
+
     # time.sleep(0.5)
 
     # cnt = 0
@@ -239,22 +251,28 @@ if __name__ == '__main__':
     # dev1._reset_spi()
 
 
-    # cnt = 0
-    # while cnt < 50:
-    #     dev0_read = dev0.read()
-    #     if dev0_read is None:
-    #         print(Fore.RED + "Dev0 Read failed!" + Style.RESET_ALL)
-    #     else:
-    #         print(Fore.GREEN + "Dev0 Read Successull!" + Style.RESET_ALL)
+    cnt = 0
+    while cnt < 50:
+        channel = GPIO.wait_for_edge(25, GPIO.RISING)
+        if channel is None:
+            print('Timeout occurred')
+        else:
+            print('Edge detected on channel', channel)
 
-    #     dev1_read = dev1.read()
-    #     if dev1_read is None:
-    #         print(Fore.RED + "Dev1 Read failed!" + Style.RESET_ALL)
-    #     else:
-    #         print(Fore.GREEN + "Dev1 Read Successull!" + Style.RESET_ALL)
+        dev0_read = dev0.read()
+        if dev0_read is None:
+            print(Fore.RED + "Dev0 Read failed!" + Style.RESET_ALL)
+        else:
+            print(Fore.GREEN + "Dev0 Read Successull!" + Style.RESET_ALL)
+
+        dev1_read = dev1.read()
+        if dev1_read is None:
+            print(Fore.RED + "Dev1 Read failed!" + Style.RESET_ALL)
+        else:
+            print(Fore.GREEN + "Dev1 Read Successull!" + Style.RESET_ALL)
 
 
-    #     time.sleep(0.01)
-    #     cnt += 1
+        # time.sleep(0.01)
+        cnt += 1
 
         
